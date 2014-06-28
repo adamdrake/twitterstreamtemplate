@@ -1,5 +1,6 @@
 from threading import Thread
-from collections import deque  # No locking for append() and popleft()
+from queue import Queue
+
 from twython import TwythonStreamer
 from requests.exceptions import ChunkedEncodingError
 
@@ -12,7 +13,7 @@ class TwitterStream(TwythonStreamer):
 
     def on_success(self, data):
         if 'text' in data:
-            self.tweet_queue.append(data)
+            self.tweet_queue.put(data)
 
     def on_error(self, status_code, data):
         print(status_code)
@@ -40,15 +41,13 @@ def stream_tweets(tweets_queue):
 
 def process_tweets(tweets_queue):
     while True:
-        if len(tweets_queue) > 0:
-            #  Do something with the tweets
-            print(tweets_queue.popleft())
+        tweet = tweets_queue.get()
+        # Do something with the tweet
+        print(tweet)
+        tweets_queue.task_done()
 
 if __name__ == '__main__':
-
-    tweet_queue = deque()
-
-    tweet_stream = Thread(target=stream_tweets, args=(tweet_queue,), daemon=True)
-    tweet_stream.start()
+    tweet_queue = Queue()
+    Thread(target=stream_tweets, args=(tweet_queue,), daemon=True).start()
 
     process_tweets(tweet_queue)
